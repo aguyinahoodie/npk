@@ -69,34 +69,33 @@ else
 fi
 
 ls -alh /npk/raw/rawfile
-FILETYPE=`file -b /npk/raw/rawfile`
 FILENAME=`echo ${TARGETFILE##*/} | cut -d"?" -f1`
+EXTENSION="${FILENAME##*.}"
+EXTENSION="${EXTENSION,,}"
+BASENAME="${FILENAME%.*}"
 
-if [[ `echo $FILETYPE | grep text | wc -l` -eq 0 ]]; then
-	echo "[+] File is compressed. Attempting to decompress"
-	7za l /npk/raw/rawfile
-
-	mv /npk/raw/rawfile /npk/raw/cprfile
-	FIRSTFILE=`7za l /npk/raw/cprfile | tail -n 3 | head -n 1 | awk ' { print($6) } '`
-	FILENAME=${FIRSTFILE##*/}
-	7za x -bsp1 /npk/raw/cprfile -o/npk/raw/output/
-	# rm -f /npk/raw/cprfile
-	mv /npk/raw/output/$FILENAME /npk/raw/rawfile
+if [[ "$EXTENSION" == "7z" ]]; then
+	echo "[+] 7z input - streaming via 7zz for line count, preserving original archive."
+	read FILELINES SIZE < <(7zz x -so /npk/raw/rawfile 2>/dev/null | wc -lc)
+	OUTKEY="$TARGETFILETYPE/$FILENAME"
+	UPLOAD_SRC=/npk/raw/rawfile
+elif [[ "$EXTENSION" == "gz" ]]; then
+	echo "[+] gzip input - streaming via gunzip for line count, preserving original archive."
+	read FILELINES SIZE < <(gzip -dc /npk/raw/rawfile | wc -lc)
+	OUTKEY="$TARGETFILETYPE/$FILENAME"
+	UPLOAD_SRC=/npk/raw/rawfile
+else
+	echo "[+] Text input - counting lines and compressing with gzip."
+	read FILELINES SIZE < <(wc -lc < /npk/raw/rawfile)
+	echo "[*] Compressing with gzip"
+	pv -nte /npk/raw/rawfile | gzip -c > /npk/compressed/$BASENAME.gz
+	OUTKEY="$TARGETFILETYPE/$BASENAME.gz"
+	UPLOAD_SRC=/npk/compressed/$BASENAME.gz
 fi
 
-echo [+] Counting lines in file...
-FILELINES=$(wc -l /npk/raw/rawfile | cut -d" " -f1)
-SIZE=$(ls -al /npk/raw/rawfile | cut -d" " -f5)
+echo "$FILENAME has $FILELINES lines and $SIZE bytes (uncompressed). Uploading as $OUTKEY."
 
-# echo "Compressing with 7z"
-# 7za a /npk/compressed/$FILENAME.7z /npk/raw/rawfile
-
-echo "Compressing with gzip"
-pv -nte /npk/raw/rawfile | gzip -c  > /npk/compressed/$FILENAME.gz
-
-echo "$FILENAME has $FILELINES lines and $SIZE bytes. Preparing to upload as $TARGETFILETYPE."
-
-aws s3 cp /npk/compressed/$FILENAME.gz s3://{{dictionarybucket}}/$TARGETFILETYPE/$FILENAME.gz --metadata type=$TARGETFILETYPE,lines=$FILELINES,size=$SIZE
+aws s3 cp "$UPLOAD_SRC" "s3://{{dictionarybucket}}/$OUTKEY" --metadata type=$TARGETFILETYPE,lines=$FILELINES,size=$SIZE
 
 if [[ `echo $TARGETFILE | grep s3: | wc -l` -gt 0 ]]; then
 	aws s3 rm $TARGETFILE

@@ -83,8 +83,8 @@ exports.main = async function(event, context, callback) {
 		// all good.
 	}
 
-	// Use EC2 for compression if the size is over 4GB:
-	if (keysize > 4 * Math.pow(1024, 3)) {
+	// Use EC2 for compression if the size is over 4GB, or for any 7z input
+	if (keysize > 4 * Math.pow(1024, 3) || extension.toLowerCase() === '7z') {
 		const sq = new aws.ServiceQuotas({ region: event.awsRegion });
 		const ec2 = new aws.EC2({ region: event.awsRegion });
 
