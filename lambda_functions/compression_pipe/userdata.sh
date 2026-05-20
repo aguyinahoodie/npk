@@ -63,6 +63,7 @@ export AWS_DEFAULT_OUTPUT=json
 
 export TARGETFILE={{targetfile}}
 export TARGETFILETYPE={{targetfiletype}}
+export NEWKEY={{newkey}}
 if [[ `echo $TARGETFILE | grep s3: | wc -l` -gt 0 ]]; then
 	aws s3 cp $TARGETFILE /npk/raw/rawfile
 else
@@ -85,7 +86,6 @@ if [[ "$EXTENSION" == "7z" ]]; then
 	fi
 	read FILELINES SIZE < "$WC_TMP"
 	rm -f "$WC_TMP"
-	OUTKEY="$TARGETFILETYPE/$FILENAME"
 	UPLOAD_SRC=/npk/raw/rawfile
 elif [[ "$EXTENSION" == "gz" ]]; then
 	echo "[+] gzip input - streaming via gunzip for line count, preserving original archive."
@@ -97,7 +97,6 @@ elif [[ "$EXTENSION" == "gz" ]]; then
 	fi
 	read FILELINES SIZE < "$WC_TMP"
 	rm -f "$WC_TMP"
-	OUTKEY="$TARGETFILETYPE/$FILENAME"
 	UPLOAD_SRC=/npk/raw/rawfile
 else
 	echo "[+] Text input - counting lines and compressing with gzip."
@@ -105,13 +104,12 @@ else
 	SIZE=$(wc -c < /npk/raw/rawfile)
 	echo "[*] Compressing with gzip"
 	pv -nte /npk/raw/rawfile | gzip -c > /npk/compressed/$BASENAME.gz
-	OUTKEY="$TARGETFILETYPE/$BASENAME.gz"
 	UPLOAD_SRC=/npk/compressed/$BASENAME.gz
 fi
 
-echo "$FILENAME has $FILELINES lines and $SIZE bytes (uncompressed). Uploading as $OUTKEY."
+echo "$FILENAME has $FILELINES lines and $SIZE bytes (uncompressed). Uploading as $NEWKEY."
 
-aws s3 cp "$UPLOAD_SRC" "s3://{{dictionarybucket}}/$OUTKEY" --metadata type=$TARGETFILETYPE,lines=$FILELINES,size=$SIZE
+aws s3 cp "$UPLOAD_SRC" "s3://{{dictionarybucket}}/$NEWKEY" --metadata type=$TARGETFILETYPE,lines=$FILELINES,size=$SIZE
 
 if [[ `echo $TARGETFILE | grep s3: | wc -l` -gt 0 ]]; then
 	aws s3 rm $TARGETFILE

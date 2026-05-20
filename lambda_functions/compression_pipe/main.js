@@ -60,7 +60,13 @@ exports.main = async function(event, context, callback) {
 		.split('.')
 		.slice(-1)[0];
 
-	let newKey = `${type}/${basename}.gz`;
+	// Preserve original archive extension for .7z and .gz pass-through; gzip everything else.
+	const lowerExt = extension.toLowerCase();
+	const preserveArchive = (lowerExt === '7z' || lowerExt === 'gz');
+	const destFilename = preserveArchive
+		? key.split('/').pop()
+		: `${basename}.gz`;
+	let newKey = `${type}/${destFilename}`;
 
 	if (!['rules', 'wordlist'].includes(type)) {
 		await s3.deleteObject({
@@ -71,14 +77,17 @@ exports.main = async function(event, context, callback) {
 		return callback(`[!] '${type}' is not a valid type.`);
 	}
 
-	// Append a timestamp if the file already exists.
+	// Append a timestamp before the extension if the file already exists.
 	try {
 		const exists = await s3.headObject({
 			Bucket: bucket,
 			Key: newKey
 		}).promise();
 
-		newKey = `${type}/${basename}-${Date.now()}.gz`
+		const dot = destFilename.lastIndexOf('.');
+		const stem = destFilename.slice(0, dot);
+		const ext = destFilename.slice(dot);
+		newKey = `${type}/${stem}-${Date.now()}${ext}`;
 	} catch (e) {
 		// all good.
 	}
@@ -115,6 +124,7 @@ exports.main = async function(event, context, callback) {
 		const instance_userdata = new Buffer.from(fs.readFileSync(__dirname + '/userdata.sh', 'utf-8')
 			.replace("{{targetfile}}", `s3://${bucket}/${key}`)
 			.replace("{{targetfiletype}}", type)
+			.replace("{{newkey}}", newKey)
 			.replace("{{dictionarybucket}}", variables.dictionaryBucket))
 			.toString('base64');
 
