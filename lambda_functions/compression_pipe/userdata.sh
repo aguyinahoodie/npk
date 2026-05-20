@@ -7,6 +7,7 @@ shutdown_on_exit() {
 
 trap shutdown_on_exit EXIT
 set -e
+set -o pipefail
 
 # amazon-linux-extras install -y epel
 yum install -y wget p7zip pv
