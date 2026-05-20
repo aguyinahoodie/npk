@@ -43,7 +43,8 @@ async function deploy(skipInit, autoApprove) {
 		'sAMLMetadataFile',
 		'sAMLMetadataUrl',
 		'primaryRegion',
-		'useRegions'
+		'useRegions',
+		'allowedSourceIps'
 	];
 
 	const badSettings = Object.keys(settings)

@@ -68,6 +68,8 @@
 					acm_certificate_arn: "${aws_acm_certificate.main.arn}",
 					ssl_support_method: "sni-only",
 				}
+			} else { } + if std.objectHas(settings, "allowedSourceIps") && std.length(settings.allowedSourceIps) > 0 then {
+				web_acl_id: "${aws_wafv2_web_acl.npk.arn}",
 			} else { }
 		}
 	},

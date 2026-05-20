@@ -28,6 +28,7 @@ local subnet = import 'jsonnet/subnet.libsonnet';
 // local templates = import 'jsonnet/templates.libsonnet';
 local variables = import 'jsonnet/variables.libsonnet';
 local vpc = import 'jsonnet/vpc.libsonnet';
+local waf = import 'jsonnet/waf.libsonnet';
 
 local validatedSettings = std.extVar('validatedSettings');
 
@@ -221,6 +222,9 @@ local regionKeys = std.objectFields(settings.regions);
 	'cloudfront.tf.json': {
 		resource: cloudfront.resource(settings),
 		output: cloudfront.output
+	},
+	[if std.objectHas(npksettings, 'allowedSourceIps') && std.length(npksettings.allowedSourceIps) > 0 then 'waf.tf.json' else null]: {
+		resource: waf.resource(settings)
 	},
 	'cloudwatch.tf.json': cloudwatch,
 	'cloudwatch-policy.tf.json': {
