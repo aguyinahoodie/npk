@@ -77,17 +77,32 @@ BASENAME="${FILENAME%.*}"
 
 if [[ "$EXTENSION" == "7z" ]]; then
 	echo "[+] 7z input - streaming via 7zz for line count, preserving original archive."
-	read FILELINES SIZE < <(7zz x -so /npk/raw/rawfile 2>/dev/null | wc -lc)
+	WC_TMP=$(mktemp)
+	if ! 7zz x -so /npk/raw/rawfile 2>/dev/null | wc -lc > "$WC_TMP"; then
+		rm -f "$WC_TMP"
+		echo "[!] 7zz extraction failed; leaving source in to_process/."
+		exit 1
+	fi
+	read FILELINES SIZE < "$WC_TMP"
+	rm -f "$WC_TMP"
 	OUTKEY="$TARGETFILETYPE/$FILENAME"
 	UPLOAD_SRC=/npk/raw/rawfile
 elif [[ "$EXTENSION" == "gz" ]]; then
 	echo "[+] gzip input - streaming via gunzip for line count, preserving original archive."
-	read FILELINES SIZE < <(gzip -dc /npk/raw/rawfile | wc -lc)
+	WC_TMP=$(mktemp)
+	if ! gzip -dc /npk/raw/rawfile | wc -lc > "$WC_TMP"; then
+		rm -f "$WC_TMP"
+		echo "[!] gzip extraction failed; leaving source in to_process/."
+		exit 1
+	fi
+	read FILELINES SIZE < "$WC_TMP"
+	rm -f "$WC_TMP"
 	OUTKEY="$TARGETFILETYPE/$FILENAME"
 	UPLOAD_SRC=/npk/raw/rawfile
 else
 	echo "[+] Text input - counting lines and compressing with gzip."
-	read FILELINES SIZE < <(wc -lc < /npk/raw/rawfile)
+	FILELINES=$(wc -l < /npk/raw/rawfile)
+	SIZE=$(wc -c < /npk/raw/rawfile)
 	echo "[*] Compressing with gzip"
 	pv -nte /npk/raw/rawfile | gzip -c > /npk/compressed/$BASENAME.gz
 	OUTKEY="$TARGETFILETYPE/$BASENAME.gz"
