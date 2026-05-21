@@ -56,6 +56,22 @@ async function deploy(skipInit, autoApprove) {
 		return false;
 	}
 
+	// Validate allowedSourceIps content if the setting is present. Empty arrays are
+	// allowed (signals feature-off without removing the key).
+	if (settings.allowedSourceIps !== undefined) {
+		if (!Array.isArray(settings.allowedSourceIps)) {
+			console.log('[!] allowedSourceIps must be an array of IPv4 CIDR strings (e.g. ["1.2.3.4/32"]).');
+			return false;
+		}
+		const ipv4CidrRe = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\/(?:3[0-2]|[12]?[0-9])$/;
+		const badCidrs = settings.allowedSourceIps.filter(cidr => typeof cidr !== 'string' || !ipv4CidrRe.test(cidr));
+		if (badCidrs.length > 0) {
+			badCidrs.forEach(cidr => console.log(`[!] Invalid IPv4 CIDR in allowedSourceIps: ${JSON.stringify(cidr)}`));
+			console.log('[!] Each entry must be IPv4 with a prefix length (e.g. "1.2.3.4/32" or "10.0.0.0/16").');
+			return false;
+		}
+	}
+
 	// Determine the route53 zone information.
 	if (!!settings.route53Zone) {
 		const route53 = new aws.Route53();
